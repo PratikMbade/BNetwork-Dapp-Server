@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                    String            @id @default(cuid())
+  regId                 Int?               @unique
+  registeredTime        Int?
+  bn_id                 String?
+  wallet_address        String            @unique
+  sponser_address       String?
+  directTeam_Count      Int?              @default(0)
+  totalTeam_Count       Int?               @default(0)
+  isRegistered          Boolean?          @default(false)
+  cosmosPlanets         CosmosPlanet[] // One-to-many relation to CosmosPlanet, up to 10 planets per user
+  registrationTranxhash String?
+  direct_team           DirectTeam[]
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+  ancestors             Ancestors[]
+  bnCoinEarned          bnCoinEarned[]
+  lastestPlanetName     String?
+  totalBNCoin           Int?
+  directEarning         Float?            @default(0.0)
+  levelEarning          Float?            @default(0.0)
+  upgradeEarning        Float?            @default(0.0)
+  myLaps                Float?            @default(0.0)
+  earningList           EarningInfo[]
+  indexMappings         IndexMapping[]    @relation("IndexMappingUserIds")
+  accounts              Account[]
+  sessions              Session[]
+  cryptoLoginNonce      CryptoLoginNonce?
+  nftBonusHistory       NFTBonusHistory[]
+  currentNFTs           UserNFTs[]
+  nftTransferHistory    NFTTransferHistory[]
+
+  @@map("User")
+}
+model CosmosPlanet {
+  id          String @id @default(cuid())
+  planetNum   Int
+  planetName  String
+  planetPrice Int
+  user        User   @relation(fields: [userId], references: [id])
+  userId      String
+  planetId    String
+  planet      Planet @relation(fields: [planetId], references: [id])
+
+  @@unique([userId, planetNum]) // Composite unique constraint for each user
+  @@map("CosmosPlanet")
+}
+
+model UserNFTs {
+  id         String   @id @default(cuid())
+  userId     String
+  tokenType  Int
+  tokenId    Int
+  mintDate   DateTime
+  royaltNFTId String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  royaltNFTS RoyaltyNFTs @relation(fields: [royaltNFTId], references: [id], onDelete: Cascade)
+
+  @@map("UserNFTs")
+}
+
+
+
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model CryptoLoginNonce {
+  userId  String   @unique
+  nonce   String
+  expires DateTime
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+
+model Planet {
+  id             String         @id @default(cuid())
+  planetNum      Int            @unique
+  planetName     String         @unique
+  planetPrice    Int
+  universalCount Int            @default(0)
+  planets        CosmosPlanet[]
+
+  @@map("Planet")
+}
+
+model DirectTeam {
+  id             String @id @default(cuid())
+  wallet_address String 
+  userId         String 
+  user           User   @relation(fields: [userId], references: [id])
+}
+
+model Ancestors {
+  id              String   @id @default(cuid())
+  ancestorsNumber Int
+  wallet_address  String
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  createdAt       DateTime
+
+  @@unique([userId, wallet_address])
+}
+
+model bnCoinEarned {
+  id             String   @id @default(cuid())
+  bn_id          String
+  wallet_address String
+  amount         Float    @default(0.0)
+  timeStamp      DateTime
+  userId         String // Foreign key
+  user           User     @relation(fields: [userId], references: [id])
+
+  @@unique([wallet_address, userId]) // Ensure that the combination of wallet_address and userId is unique
+}
+
+model BNCoinConfig {
+  id                       String @id @default(cuid())
+  key                      String @unique
+  value                    Int
+  BNMaxRewardsCoins        Int    @default(50000)
+  BNMaxAirDropCoins        Int    @default(1000)
+  BNCoinDistributed        Int?
+  BNAirDropCoinDistributed Int?
+}
+
+model EarningInfo {
+  id              String      @id @default(cuid())
+  amount          Float       @default(0.0)
+  receiverAddress String
+  senderAddress   String
+  planetName      String
+  earningType     EarningType
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+}
+
+enum EarningType {
+  DIRECT_EARNING
+  LEVEL_EARNING
+  UPGRADE_EARNING
+  AUTOPOOL_EARNING
+}
+
+model CosMosAutoPool {
+  id                     String           @id @default(cuid())
+  bn_id                  String
+  planetName             String
+  reg_user_address       String
+  universeSlot           Int?
+  children               CosMosAutoPool[] @relation("ParentChild")
+  parentId               String?
+  parent                 CosMosAutoPool?  @relation("ParentChild", fields: [parentId], references: [id])
+  currentRecycle         Int?
+  recycle                RecycleMapping[]
+  currentLevel           Int?
+  currentPosition        Int?
+  autoPoolEarning        Float?
+  autoPoolEarningHistory EarningHistory[]
+  isRoot                 Boolean          @default(false)
+  canHaveMoreChildren    Boolean          @default(true)
+  childrenId             String?
+  autopoolMembers        Children[]       @relation("AutoPoolMembers")
+
+  @@unique([bn_id, planetName]) // Composite unique constraint
+  @@map("AutoPool")
+}
+
+model Children {
+  id             String         @id @default(cuid())
+  wallet_address String
+  planetName     String
+  parentId       String
+  autoPool       CosMosAutoPool @relation("AutoPoolMembers", fields: [parentId], references: [id])
+
+  @@map("Children")
+}
+
+model RecycleMapping {
+  id            String         @id @default(cuid())
+  recycleCount  Int            @default(0)
+  indexMappings IndexMapping[]
+  autoPoolId    String
+  autoPool      CosMosAutoPool @relation(fields: [autoPoolId], references: [id])
+
+  @@map("RecycleMapping")
+}
+
+model IndexMapping {
+  id               String         @id @default(cuid())
+  userLevel        Int
+  userPosition     Int
+  userIds          User[]         @relation("IndexMappingUserIds")
+  recycleMappingId String
+  recycleMapping   RecycleMapping @relation(fields: [recycleMappingId], references: [id])
+
+  @@map("IndexMapping")
+}
+
+model EarningHistory {
+  id               String         @id @default(cuid())
+  recycleNumber    Int
+  reg_user_address String
+  bn_id            String
+  planetName       String
+  amount           Float
+  currentPosition  Int
+  currentLevel     Int
+  timestamp        DateTime       @default(now())
+  autoPoolId       String
+  autoPool         CosMosAutoPool @relation(fields: [autoPoolId], references: [id])
+
+  @@map("EarningHistory")
+}
+
+model TempChild {
+  id                   String                  @id @default(cuid())
+  childId              String
+  childAddress         String
+  level                Int
+  position             Int
+  universalPlanetCount Int?
+  temporaryChildrenId  String
+  temporaryChildren    TemporaryChildrenSchema @relation(fields: [temporaryChildrenId], references: [id])
+}
+
+model TemporaryChildrenSchema {
+  id             String      @id @default(cuid())
+  panrentAddress String
+  planetName     String
+  TempChild      TempChild[]
+}
+
+
+model NFTBonusHistory {
+  id              String   @id @default(cuid())
+  userId          String
+  tokenId         Int
+  tokenType       Int
+  bonusAmount     Float
+  claminedDate    DateTime
+  bonusLaunchDate DateTime
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+model RoyaltyNFTs{
+    id     String @id @default(cuid())
+    tokenType Int 
+    tokenId   Int
+    tokenCount Int     @default(0)
+    nfts     UserNFTs[]
+      @@map("RoyaltyNFTs")
+
+}
+
+model NFTTransferHistory{
+  id    String @id @default(cuid())
+  userId  String
+  tokenType  Int
+  tokenId   Int
+  receiver_wallet_address String
+  user User @relation(fields: [userId], references: [id],onDelete: Cascade)
+}
