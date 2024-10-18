@@ -1,5 +1,5 @@
 import express, { Express, Request, Response } from "express";
-import { PORT } from "./secret";
+
 import rootRouter from "./routes/root";
 import { PrismaClient, User } from "@prisma/client";
 import cors from 'cors'
@@ -7,6 +7,9 @@ import { listenOnContractRegistratoin, listenOnContractBuyPlanet, registrationHa
 import { createFirstOwner } from "./lib/seedBNCoinData";
 import { buyCosmosPlanetsEvent } from "./controllers/cosmos-network/buyplanet";
 const app: Express = express();
+
+const PORT = process.env.PORT || 4000;
+
 
 
 app.use(cors())
